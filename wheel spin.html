@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>lucky draw spinner</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+        :root {
+            --bg: #f8f8f8;
+            --surface: #ffffff;
+            --surface-soft: #f1f1f1;
+            --border: #d4d4d4;
+            --text: #000000;
+            --text-muted: #404040;
+            --accent: #111111;
+            --accent-hover: #000000;
+            --success: #16a34a;
+            --success-hover: #15803d;
+            --danger: #be123c;
+            --radius: 12px;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            --gradient-start: #fecaca;
+            --grad-opacity: 0.35;
+            --grad2-opacity: 0.22;
+        }
+
+        body.dark-mode {
+            --bg: #0a0a0a;
+            --surface: #171717;
+            --surface-soft: #262626;
+            --border: #404040;
+            --text: #fafafa;
+            --text-muted: #a3a3a3;
+            --accent: #e5e5e5;
+            --accent-hover: #ffffff;
+            --success: #22c55e;
+            --success-hover: #16a34a;
+            --danger: #f43f5e;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+            --gradient-start: #7f1d1d;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            /* two layered gradients */
+            background-image:
+                radial-gradient(ellipse at var(--grad-pos, center), rgba(185, 28, 28, var(--grad-opacity)) 0%, transparent 65%),
+                radial-gradient(ellipse at var(--grad2-pos, center), rgba(220, 38, 38, var(--grad2-opacity)) 0%, transparent 55%);
+            margin: 0;
+            padding: 32px 20px 60px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.5;
+            transition: background-color 0.25s ease, color 0.25s ease;
+            background-size: 200% 200%, 180% 180%;
+        }
+
+        body.low-quality {
+            background-image: none;
+        }
+
+        body.low-quality.dark-mode {
+            background-image: none;
+        }
+
+        h1 {
+            font-weight: 600;
+            font-size: 1.75rem;
+            letter-spacing: -0.025em;
+            color: var(--text);
+            margin: 0 0 28px 0;
+        }
+
+        h3 {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text);
+            margin: 24px 0 10px 0;
+            letter-spacing: -0.01em;
+        }
+
+        h3:first-child { margin-top: 0; }
+
+        .container {
+            display: flex;
+            flex-direction: row;
+            gap: 28px;
+            max-width: 1100px;
+            width: 100%;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .panel {
+            background: var(--surface);
+            padding: 28px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            flex: 1;
+            min-width: 300px;
+            max-width: 460px;
+            transition: background 0.25s ease, border-color 0.25s ease;
+        }
+
+        body.low-quality .panel { box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+        .wheel-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            min-width: 360px;
+            padding: 32px 24px;
+        }
+
+        canvas#wheel {
+            background: #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 8px 32px rgba(15, 23, 42, 0.1), inset 0 0 0 1px rgba(15, 23, 42, 0.04);
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        body.low-quality canvas#wheel {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: none;
+        }
+
+        canvas#wheel:hover { transform: scale(1.01); }
+        body.low-quality canvas#wheel:hover { transform: none; }
+
+        .pointer {
+            width: 0;
+            height: 0;
+            border-left: 14px solid transparent;
+            border-right: 14px solid transparent;
+            border-top: 28px solid #000000;
+            position: absolute;
+            top: 12px;
+            z-index: 10;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.25));
+        }
+
+        body.dark-mode .pointer {
+            border-top-color: #fafafa;
+        }
+
+        body.low-quality .pointer { filter: none; }
+
+        button, input[type="file"], select {
+            margin-top: 10px;
+            padding: 11px 16px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            width: 100%;
+            background: var(--surface);
+            color: var(--text);
+            transition: all 0.15s ease;
+        }
+
+        body.low-quality button,
+        body.low-quality input[type="file"],
+        body.low-quality select { transition: none; }
+
+        button {
+            background-color: var(--accent);
+            color: #ffffff;
+            border: none;
+            font-weight: 500;
+        }
+
+        body.dark-mode button {
+            color: #0f172a;
+        }
+
+        button:hover { background-color: var(--accent-hover); }
+        button:active { transform: translateY(1px); }
+
+        #spin-btn {
+            background-color: #000000;
+            margin-top: 24px;
+            font-size: 1.05rem;
+            padding: 14px 20px;
+            border-radius: 10px;
+            color: #ffffff;
+        }
+
+        body.dark-mode #spin-btn {
+            background-color: #fafafa;
+            color: #000000;
+        }
+
+        #spin-btn:hover { background-color: #262626; }
+        body.dark-mode #spin-btn:hover { background-color: #e5e5e5; }
+
+        #apply-column-btn {
+            background-color: #000000;
+            margin-top: 14px;
+            color: #ffffff;
+        }
+
+        body.dark-mode #apply-column-btn {
+            background-color: #e5e5e5;
+            color: #000000;
+        }
+
+        input[type="file"] {
+            padding: 10px;
+            background: var(--surface-soft);
+            color: var(--text-muted);
+        }
+
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 36px;
+        }
+
+        select:focus, textarea:focus, input:focus {
+            outline: none;
+            border-color: #94a3b8;
+            box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.2);
+        }
+
+        body.low-quality select:focus,
+        body.low-quality textarea:focus,
+        body.low-quality input:focus { box-shadow: none; }
+
+        .toggle-container {
+            margin: 20px 0 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            background: var(--surface-soft);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .toggle-container label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        textarea {
+            width: 100%;
+            height: 110px;
+            margin-top: 8px;
+            padding: 12px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--surface-soft);
+            resize: vertical;
+            color: var(--text);
+        }
+
+        .list-info {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 8px;
+            padding: 6px 0;
+        }
+
+        .group-box {
+            margin-top: 16px;
+            background: var(--surface-soft);
+            padding: 16px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            display: none;
+        }
+
+        .group-box label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text);
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        /* winner modal */
+        #winner-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(185, 28, 28, 0.72);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.35s ease;
+        }
+
+        body.low-quality #winner-modal {
+            background: #b91c1c;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            transition: opacity 0.2s ease;
+        }
+
+        #winner-modal.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            text-align: center;
+            color: #ffffff;
+            padding: 48px 40px;
+            border-radius: 20px;
+            background: rgba(0, 0, 0, 0.28);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            max-width: 520px;
+            width: 90%;
+            position: relative;
+            z-index: 2;
+        }
+
+        body.low-quality .modal-content {
+            background: rgba(0, 0, 0, 0.4);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
+
+        .modal-content h2 {
+            font-size: 2.75rem;
+            font-weight: 600;
+            margin: 0 0 12px 0;
+            color: #facc15;
+            letter-spacing: -0.02em;
+            text-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        body.low-quality .modal-content h2 { text-shadow: none; }
+
+        .modal-content p {
+            font-size: 1.25rem;
+            margin: 18px 0;
+            line-height: 1.55;
+            color: #ffffff;
+        }
+
+        .modal-content p strong {
+            color: #fef08a;
+        }
+
+        .modal-content button {
+            background-color: #ffffff;
+            color: #b91c1c;
+            font-size: 1.05rem;
+            padding: 13px 32px;
+            font-weight: 600;
+            border-radius: 10px;
+            margin-top: 24px;
+            width: auto;
+            min-width: 160px;
+            border: none;
+        }
+
+        .modal-content button:hover {
+            background-color: #fef08a;
+            color: #7f1d1d;
+        }
+
+        /* separate menus */
+        #graphics-menu,
+        #weights-menu {
+            width: 100%;
+            min-width: 0;
+            margin-top: 12px;
+            background: var(--surface-soft);
+            padding: 16px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            display: none;
+        }
+
+        #graphics-menu h4,
+        #weights-menu h4 {
+            color: var(--danger);
+            margin: 0 0 14px 0;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .secret-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            margin: 0;
+            padding: 8px 0;
+            font-size: 0.9rem;
+            gap: 8px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        .secret-row:last-child { border-bottom: 0; }
+
+        .secret-row label {
+            font-weight: 500;
+            color: var(--text);
+            flex: 1 1 130px;
+            min-width: 0;
+        }
+
+        .secret-row select {
+            width: auto;
+            min-width: 110px;
+            max-width: 100%;
+            margin: 0;
+            padding: 6px 28px 6px 10px;
+        }
+        .secret-row input[type="number"] {
+            width: 76px;
+            min-width: 0;
+            margin: 0;
+            padding: 6px 8px;
+        }
+
+        .secret-row input[type="range"] {
+            width: 120px;
+            margin: 0;
+            accent-color: #b91c1c;
+        }
+
+        .secret-row .range-value {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            min-width: 36px;
+            text-align: right;
+        }
+
+        .weight-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 76px auto;
+            gap: 8px;
+            margin-bottom: 8px;
+            align-items: center;
+            font-size: 0.875rem;
+        }
+        .weight-row .weight-name {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .weight-row .weight-share {
+            color: var(--text-muted);
+            white-space: nowrap;
+            font-size: 0.8rem;
+        }
+
+        .weight-row input {
+            width: 76px;
+            padding: 5px 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: inherit;
+            background: var(--surface);
+            color: var(--text);
+        }
+
+        .secondary-btn {
+            background: var(--surface-soft) !important;
+            color: var(--text) !important;
+            border: 1px solid var(--border) !important;
+            font-weight: 500;
+        }
+
+        .secondary-btn:hover {
+            background: var(--border) !important;
+        }
+
+        .drop-zone {
+            position: relative;
+            border: 2px dashed var(--border);
+            border-radius: 10px;
+            padding: 28px 16px;
+            text-align: center;
+            background: var(--surface-soft);
+            transition: border-color 0.2s ease, background 0.2s ease;
+            overflow: hidden;
+            min-height: 90px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .drop-zone.drag-over {
+            border-color: #b91c1c;
+            background: rgba(185, 28, 28, 0.08);
+        }
+
+        .drop-zone.loaded {
+            border-color: var(--success);
+            background: rgba(22, 163, 74, 0.08);
+        }
+
+        .drop-zone input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            margin: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .drop-message {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .drop-message.loaded-name {
+            color: var(--success);
+            font-weight: 600;
+        }
+
+        .drop-anim {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: #b91c1c;
+            background: rgba(255,255,255,0.9);
+            transition: opacity 0.25s ease;
+        }
+
+        body.dark-mode .drop-anim {
+            background: rgba(0,0,0,0.8);
+        }
+
+        .drop-zone.animating .drop-anim {
+            opacity: 1;
+        }
+
+        .drop-anim .icon-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.6rem;
+            line-height: 1;
+        }
+
+        .drop-anim .icon-row span {
+            display: inline-block;
+            animation: bounce-icons 1.2s ease infinite;
+        }
+
+        .drop-anim .icon-row span:nth-child(2) {
+            animation-delay: 0.15s;
+        }
+
+        .drop-anim .icon-row span:nth-child(3) {
+            animation-delay: 0.3s;
+        }
+
+        .drop-anim .label {
+            font-size: 0.8rem;
+            font-weight: 500;
+            opacity: 0.85;
+        }
+
+        @keyframes bounce-icons {
+            0%, 100% { transform: translateY(0); opacity: 0.6; }
+            50% { transform: translateY(-6px); opacity: 1; }
+        }
+
+        /* liquid gradient animation (high quality only) - on by default */
+        body.liquid-gradient {
+            animation: liquid-shift 12s ease-in-out infinite;
+        }
+
+        @keyframes liquid-shift {
+            0% { background-position: 0% 50%, 100% 30%; }
+            50% { background-position: 100% 50%, 0% 70%; }
+            100% { background-position: 0% 50%, 100% 30%; }
+        }
+
+        body.low-quality.liquid-gradient {
+            animation: none;
+            background-size: auto;
+        }
+
+        /* additional columns as a compact menu (checkboxes) */
+        .columns-menu {
+            margin-top: 8px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--surface);
+            max-height: 140px;
+            overflow-y: auto;
+            padding: 6px 0;
+        }
+
+        .columns-menu label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            margin: 0;
+            font-size: 0.875rem;
+            font-weight: 400;
+            cursor: pointer;
+            transition: background 0.12s ease;
+        }
+
+        .columns-menu label:hover {
+            background: var(--surface-soft);
+        }
+
+        .columns-menu input[type="checkbox"] {
+            width: 15px;
+            height: 15px;
+            accent-color: #b91c1c;
+            margin: 0;
+            flex-shrink: 0;
+        }
+
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 1001;
+            display: none;
+        }
+
+        #confetti-canvas.active { display: block; }
+
+        @media (max-width: 800px) {
+            .container { flex-direction: column; align-items: center; }
+            .panel, .wheel-container { max-width: 100%; }
+        }
+    </style>
+</head>
+<body class="liquid-gradient">
+
+    <h1>lucky draw spinner</h1>
+
+    <div class="container">
+        <div class="panel">
+            <h3>1. upload excel or csv file</h3>
+            <div class="drop-zone" id="drop-zone">
+                <input type="file" id="excel-file" accept=".xlsx, .xls, .csv">
+                <div class="drop-message" id="drop-message">drop file here or click to choose</div>
+                <div class="drop-anim" id="drop-anim" aria-hidden="true">
+                    <div class="icon-row">
+                        <span>📄</span>
+                        <span>➜</span>
+                        <span>🎡</span>
+                    </div>
+                    <div class="label">loading entries…</div>
+                </div>
+            </div>
+            <div class="list-info" id="file-status">no file loaded.</div>
+
+            <div class="group-box" id="sheet-group">
+                <label for="sheet-select"><strong>select sheet:</strong></label>
+                <select id="sheet-select"></select>
+            </div>
+
+            <div class="group-box" id="column-group">
+                <label for="name-column-select"><strong>select primary name column:</strong></label>
+                <select id="name-column-select"></select>
+                
+                <label style="margin-top:12px; display:block;"><strong>additional announcement columns:</strong></label>
+                <div class="columns-menu" id="additional-columns-menu"></div>
+                <div class="list-info" style="margin-top:4px;">tick the columns to show when someone wins</div>
+
+                <button id="apply-column-btn">load entries into wheel</button>
+            </div>
+
+            <button id="toggle-list-btn" class="secondary-btn" style="margin-top:18px;">view list</button>
+            <div id="manual-list-section" style="display:none;">
+                <textarea id="manual-names" placeholder="paste names here, one per line"></textarea>
+            </div>
+            <button id="load-names-btn">update list</button>
+
+            <div class="toggle-container">
+                <label for="keep-name-toggle"><strong>keep entry in wheel after spin:</strong></label>
+                <input type="checkbox" id="keep-name-toggle" checked style="width: 18px; height: 18px;">
+            </div>
+
+            <!-- graphics menu (separate) -->
+            <div id="graphics-menu">
+                <h4>graphics settings</h4>
+
+                <div class="secret-row">
+                    <label for="quality-select">visual quality</label>
+                    <select id="quality-select">
+                        <option value="high">high</option>
+                        <option value="low">low (faster)</option>
+                    </select>
+                </div>
+
+                <div class="secret-row">
+                    <label for="theme-select">theme</label>
+                    <select id="theme-select">
+                        <option value="light">light</option>
+                        <option value="dark">dark</option>
+                    </select>
+                </div>
+
+                <div class="secret-row">
+                    <label for="grad-opacity">main opacity</label>
+                    <input type="range" id="grad-opacity" min="0" max="100" value="35">
+                    <span class="range-value" id="grad-opacity-val">35%</span>
+                </div>
+
+                <div class="secret-row">
+                    <label for="grad2-opacity">second opacity</label>
+                    <input type="range" id="grad2-opacity" min="0" max="100" value="22">
+                    <span class="range-value" id="grad2-opacity-val">22%</span>
+                </div>
+
+                <div class="secret-row">
+                    <label for="liquid-toggle">liquid gradient</label>
+                    <input type="checkbox" id="liquid-toggle" checked style="width:18px;height:18px;">
+                </div>
+
+                <div class="secret-row">
+                    <label for="confetti-toggle">confetti on win</label>
+                    <input type="checkbox" id="confetti-toggle" checked style="width:18px;height:18px;">
+                </div>
+                <div class="secret-row">
+                    <label for="confetti-interval">confetti repeat interval (seconds)</label>
+                    <input type="number" id="confetti-interval" min="1" max="60" step="1" value="5">
+                </div>
+
+                <div class="secret-row">
+                    <label for="spin-speed">spin duration</label>
+                    <select id="spin-speed">
+                        <option value="short">short</option>
+                        <option value="normal" selected>normal</option>
+                        <option value="long">long</option>
+                    </select>
+                </div>
+
+                <div class="secret-row">
+                    <label for="wheel-style">wheel style</label>
+                    <select id="wheel-style">
+                        <option value="classic">classic (b&w)</option>
+                        <option value="red">red accents</option>
+                        <option value="soft">soft pastels</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- weights menu (separate) -->
+            <div id="weights-menu">
+                <h4>probability weights</h4>
+                <div class="list-info" style="margin-top:0; margin-bottom:10px;">set each entry’s share; chances are shown as a percentage of the total</div>
+                <div class="list-info" id="weights-total" style="margin:0 0 10px;">total: 100%</div>
+                <div id="weights-container" style="max-height: 180px; overflow-y: auto;"></div>
+            </div>
+        </div>
+
+        <div class="panel wheel-container">
+            <div class="pointer"></div>
+            <canvas id="wheel" width="400" height="400"></canvas>
+            <button id="spin-btn">spin wheel!</button>
+        </div>
+    </div>
+
+    <div id="winner-modal">
+        <div class="modal-content">
+            <h2>congratulations!</h2>
+            <p id="modal-winner-details"></p>
+            <button id="close-modal-btn">spin again</button>
+        </div>
+    </div>
+
+    <canvas id="confetti-canvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('wheel');
+    const ctx = canvas.getContext('2d');
+    const spinBtn = document.getElementById('spin-btn');
+    const keepToggle = document.getElementById('keep-name-toggle');
+    const loadNamesBtn = document.getElementById('load-names-btn');
+    const manualNamesArea = document.getElementById('manual-names');
+    const fileInput = document.getElementById('excel-file');
+    const fileStatus = document.getElementById('file-status');
+    
+    const sheetGroup = document.getElementById('sheet-group');
+    const sheetSelect = document.getElementById('sheet-select');
+    const columnGroup = document.getElementById('column-group');
+    const nameColumnSelect = document.getElementById('name-column-select');
+    const additionalColumnsMenu = document.getElementById('additional-columns-menu');
+    const applyColumnBtn = document.getElementById('apply-column-btn');
+    const toggleListBtn = document.getElementById('toggle-list-btn');
+    const manualListSection = document.getElementById('manual-list-section');
+    const dropZone = document.getElementById('drop-zone');
+    const dropMessage = document.getElementById('drop-message');
+    const dropAnim = document.getElementById('drop-anim');
+    const liquidToggle = document.getElementById('liquid-toggle');
+    const confettiToggle = document.getElementById('confetti-toggle');
+    const confettiIntervalInput = document.getElementById('confetti-interval');
+    const spinSpeedSelect = document.getElementById('spin-speed');
+    const wheelStyleSelect = document.getElementById('wheel-style');
+
+    const winnerModal = document.getElementById('winner-modal');
+    const modalWinnerDetails = document.getElementById('modal-winner-details');
+    const closeModalBtn = document.getElementById('close-modal-btn');
+
+    const graphicsMenu = document.getElementById('graphics-menu');
+    const weightsMenu = document.getElementById('weights-menu');
+    const weightsContainer = document.getElementById('weights-container');
+    const qualitySelect = document.getElementById('quality-select');
+    const themeSelect = document.getElementById('theme-select');
+    const gradOpacitySlider = document.getElementById('grad-opacity');
+    const gradOpacityVal = document.getElementById('grad-opacity-val');
+    const grad2OpacitySlider = document.getElementById('grad2-opacity');
+    const grad2OpacityVal = document.getElementById('grad2-opacity-val');
+    const confettiCanvas = document.getElementById('confetti-canvas');
+    const confettiCtx = confettiCanvas.getContext('2d');
+
+    let names = [];
+    let weights = [];
+    let fullRowData = [];
+    let activeHeaders = [];
+    let selectedAdditionalCols = [];
+    let workbookGlobal = null;
+    let rawSheetData = [];
+    let startAngle = 0;
+    let spinTimeout = null;
+    let spinAngleStart = 0;
+    let spinTime = 0;
+    let spinTimeTotal = 0;
+    let isSpinning = false;
+    let isHighQuality = true;
+    let confettiParticles = [];
+    let confettiAnimId = null;
+    let confettiRepeatTimer = null;
+    let wheelStyle = 'classic';
+
+    // hidden settings menus: press ~ (or `) to reveal/hide both
+    function toggleSecretMenus() {
+        const open = graphicsMenu.style.display !== 'block';
+        graphicsMenu.style.display = open ? 'block' : 'none';
+        weightsMenu.style.display = open ? 'block' : 'none';
+    }
+
+    window.addEventListener('keydown', (e) => {
+        const target = e.target;
+        if (target && (target.isContentEditable ||
+            ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
+
+        if (e.key === '~' || e.key === '`') {
+            e.preventDefault();
+            toggleSecretMenus();
+        }
+    });
+
+    // quality toggle
+    qualitySelect.addEventListener('change', function() {
+        isHighQuality = this.value === 'high';
+        document.body.classList.toggle('low-quality', !isHighQuality);
+        if (!isHighQuality) {
+            stopConfetti();
+            document.body.classList.remove('liquid-gradient');
+        } else if (liquidToggle.checked) {
+            document.body.classList.add('liquid-gradient');
+        }
+        updateGradient();
+    });
+
+    // dark mode toggle
+    themeSelect.addEventListener('change', function() {
+        document.body.classList.toggle('dark-mode', this.value === 'dark');
+        updateGradient();
+        drawWheel();
+    });
+
+    // gradient controls (two gradients)
+    function updateGradient() {
+        if (!isHighQuality) {
+            document.body.style.backgroundImage = 'none';
+            return;
+        }
+        const opacity = (parseInt(gradOpacitySlider.value, 10) / 100).toFixed(2);
+        const opacity2 = (parseInt(grad2OpacitySlider.value, 10) / 100).toFixed(2);
+        document.body.style.setProperty('--grad-pos', 'center');
+        document.body.style.setProperty('--grad2-pos', 'center');
+        document.body.style.setProperty('--grad-opacity', opacity);
+        document.body.style.setProperty('--grad2-opacity', opacity2);
+        document.body.style.backgroundImage = `
+            radial-gradient(ellipse at center, rgba(185, 28, 28, ${opacity}) 0%, transparent 65%),
+            radial-gradient(ellipse at center, rgba(220, 38, 38, ${opacity2}) 0%, transparent 55%)
+        `;
+        gradOpacityVal.textContent = gradOpacitySlider.value + '%';
+        grad2OpacityVal.textContent = grad2OpacitySlider.value + '%';
+    }
+
+    gradOpacitySlider.addEventListener('input', updateGradient);
+    grad2OpacitySlider.addEventListener('input', updateGradient);
+
+    // apply initial gradient
+    updateGradient();
+
+    // liquid gradient (on by default for high quality)
+    liquidToggle.addEventListener('change', function() {
+        document.body.classList.toggle('liquid-gradient', this.checked && isHighQuality);
+        updateGradient();
+    });
+
+    confettiToggle.addEventListener('change', function() {
+        if (!this.checked) stopConfetti();
+    });
+
+    // wheel style
+    wheelStyleSelect.addEventListener('change', function() {
+        wheelStyle = this.value;
+        drawWheel();
+    });
+
+    // Keep the loading overlay visible until both the animation and file parsing finish.
+    let dropAnimationDone = true;
+    let fileReadDone = true;
+    let pendingFileName = '';
+
+    function finishFileLoadDisplay() {
+        if (!dropAnimationDone || !fileReadDone) return;
+        dropZone.classList.remove('animating');
+        if (pendingFileName) {
+            dropMessage.textContent = pendingFileName;
+            dropMessage.classList.add('loaded-name');
+            dropZone.classList.add('loaded');
+        }
+    }
+
+    function playDropAnim() {
+        dropAnimationDone = false;
+        dropZone.classList.add('animating');
+        setTimeout(() => {
+            dropAnimationDone = true;
+            finishFileLoadDisplay();
+        }, isHighQuality ? 1400 : 250);
+    }
+
+    ['dragenter', 'dragover'].forEach(evt => {
+        dropZone.addEventListener(evt, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add('drag-over');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(evt => {
+        dropZone.addEventListener(evt, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('drag-over');
+        });
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        const files = e.dataTransfer.files;
+        if (files && files.length > 0) {
+            fileInput.files = files;
+            fileInput.dispatchEvent(new Event('change'));
+        }
+    });
+
+    fileInput.addEventListener('change', function() {
+        if (this.files && this.files.length > 0) {
+            pendingFileName = this.files[0].name;
+            fileReadDone = false;
+            playDropAnim();
+        }
+    });
+
+    let audioCtx = null;
+    function initAudio() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    function playTickSound() {
+        try {
+            initAudio();
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.05);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.05);
+        } catch(e) {}
+    }
+
+    function playWinSound() {
+        try {
+            initAudio();
+            let now = audioCtx.currentTime;
+            let notes = [523.25, 659.25, 783.99, 1046.50];
+            notes.forEach((freq, i) => {
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, now + (i * 0.1));
+                gain.gain.setValueAtTime(0.2, now + (i * 0.1));
+                gain.gain.linearRampToValueAtTime(0.01, now + (i * 0.1) + 0.3);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now + (i * 0.1));
+                osc.stop(now + (i * 0.1) + 0.3);
+            });
+        } catch(e) {}
+    }
+
+    function initializeNames(list, rowDetails = null, customWeights = null) {
+        names = list.map(item => String(item).trim()).filter(item => item.length > 0);
+        if (names.length === 0) {
+            names = ['empty list'];
+        }
+        
+        if (rowDetails && rowDetails.length === names.length) {
+            fullRowData = rowDetails;
+        } else {
+            fullRowData = names.map(n => ({ 'Name': n }));
+        }
+
+        if (customWeights && customWeights.length === names.length) {
+            weights = customWeights.map(value => Math.max(0.1, Number(value) || 0.1));
+        } else {
+            weights = names.map(() => 1);
+        }
+
+        updateWeightsUI();
+        drawWheel();
+    }
+
+    function loadFromTextarea() {
+        const text = manualNamesArea.value;
+        const list = text.split('\n');
+        initializeNames(list);
+        fileStatus.textContent = `loaded ${names.length} entries from list.`;
+        // clear loaded file indicator when using manual list
+        dropZone.classList.remove('loaded');
+        dropMessage.classList.remove('loaded-name');
+        pendingFileName = '';
+        dropMessage.textContent = 'drop file here or click to choose';
+    }
+
+    // FIXED: always update from the textarea list (columns use their own "load entries" button)
+    loadNamesBtn.addEventListener('click', function() {
+        loadFromTextarea();
+    });
+
+    // collapsible list section
+    toggleListBtn.addEventListener('click', function() {
+        const open = manualListSection.style.display === 'block';
+        manualListSection.style.display = open ? 'none' : 'block';
+        toggleListBtn.textContent = open ? 'view list' : 'hide list';
+    });
+
+    function updateWeightsUI() {
+        weightsContainer.innerHTML = '';
+        const total = weights.reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0);
+        const totalLabel = document.getElementById('weights-total');
+        if (totalLabel) totalLabel.textContent = `probability total: 100%`;
+        names.forEach((name, idx) => {
+            const share = total > 0 ? (Math.max(0, Number(weights[idx]) || 0) / total) * 100 : 0;
+            const row = document.createElement('div');
+            row.className = 'weight-row';
+            const safeName = String(name).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+            row.innerHTML = `<span class="weight-name" title="${safeName}">${safeName}</span><input type="number" min="0.1" max="100000" step="0.1" value="${share.toFixed(1)}" data-index="${idx}" class="weight-input" aria-label="${safeName} percentage"><span class="weight-share">%</span>`;
+            weightsContainer.appendChild(row);
+        });
+        weightsContainer.querySelectorAll('.weight-input').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const index = Number(e.target.dataset.index);
+                const val = Number(e.target.value);
+                weights[index] = Number.isFinite(val) && val >= 0.1 ? val : 0.1;
+                updateWeightsUI();
+            });
+        });
+    }
+
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        pendingFileName = file.name;
+        fileReadDone = false;
+        fileStatus.textContent = `reading ${file.name}...`;
+        const reader = new FileReader();
+        
+        reader.onload = function(event) {
+            try {
+                const data = new Uint8Array(event.target.result);
+                workbookGlobal = XLSX.read(data, {type: 'array'});
+                
+                sheetSelect.innerHTML = '';
+                workbookGlobal.SheetNames.forEach(sheetName => {
+                    const opt = document.createElement('option');
+                    opt.value = sheetName;
+                    opt.textContent = sheetName;
+                    sheetSelect.appendChild(opt);
+                });
+
+                sheetGroup.style.display = 'block';
+                fileStatus.textContent = `loaded ${file.name}. choose sheet & columns:`;
+
+                loadSheetData(workbookGlobal.SheetNames[0]);
+                fileReadDone = true;
+                finishFileLoadDisplay();
+            } catch (err) {
+                console.error(err);
+                fileStatus.textContent = `error parsing file format.`;
+                sheetGroup.style.display = 'none';
+                columnGroup.style.display = 'none';
+                fileReadDone = true;
+                pendingFileName = '';
+                dropZone.classList.remove('loaded');
+                dropMessage.classList.remove('loaded-name');
+                dropMessage.textContent = 'drop file here or click to choose';
+                finishFileLoadDisplay();
+            }
+        };
+        reader.onerror = function() {
+            fileReadDone = true;
+            pendingFileName = '';
+            fileStatus.textContent = 'could not read file.';
+            dropMessage.textContent = 'drop file here or click to choose';
+            dropMessage.classList.remove('loaded-name');
+            dropZone.classList.remove('loaded');
+            finishFileLoadDisplay();
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    sheetSelect.addEventListener('change', function() {
+        loadSheetData(sheetSelect.value);
+    });
+
+    function loadSheetData(sheetName) {
+        const worksheet = workbookGlobal.Sheets[sheetName];
+        rawSheetData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+
+        if (rawSheetData.length === 0) {
+            columnGroup.style.display = 'none';
+            return;
+        }
+
+        activeHeaders = rawSheetData[0];
+        nameColumnSelect.innerHTML = '';
+        additionalColumnsMenu.innerHTML = '';
+
+        activeHeaders.forEach((header, index) => {
+            let headerText = header ? String(header) : `Column ${index + 1}`;
+            
+            const opt = document.createElement('option');
+            opt.value = index;
+            opt.textContent = headerText;
+            nameColumnSelect.appendChild(opt);
+
+            // build checkbox menu for additional columns
+            const lab = document.createElement('label');
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = index;
+            cb.dataset.header = headerText;
+            lab.appendChild(cb);
+            lab.appendChild(document.createTextNode(headerText));
+            additionalColumnsMenu.appendChild(lab);
+        });
+
+        columnGroup.style.display = 'block';
+    }
+
+    function loadFromColumns() {
+        const nameColIndex = parseInt(nameColumnSelect.value);
+        if (isNaN(nameColIndex) || rawSheetData.length === 0) return false;
+
+        selectedAdditionalCols = [];
+        additionalColumnsMenu.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => {
+            selectedAdditionalCols.push(parseInt(cb.value));
+        });
+
+        let columnEntries = [];
+        let rowDetailsList = [];
+
+        for (let i = 1; i < rawSheetData.length; i++) {
+            let row = rawSheetData[i];
+            const cell = row[nameColIndex];
+            if (cell !== undefined && cell !== null && String(cell).trim() !== '') {
+                columnEntries.push(cell);
+
+                let rowObj = {};
+                activeHeaders.forEach((h, hIdx) => {
+                    let hName = h ? String(h) : `Col ${hIdx+1}`;
+                    rowObj[hName] = row[hIdx] !== undefined ? row[hIdx] : '';
+                });
+                rowDetailsList.push(rowObj);
+            }
+        }
+
+        if (columnEntries.length > 0) {
+            initializeNames(columnEntries, rowDetailsList);
+            manualNamesArea.value = names.join('\n');
+            fileStatus.textContent = `successfully loaded ${names.length} entries.`;
+            return true;
+        } else {
+            fileStatus.textContent = `selected column has no data.`;
+            return false;
+        }
+    }
+
+    applyColumnBtn.addEventListener('click', function() {
+        loadFromColumns();
+    });
+
+    function getSliceColors(i) {
+        if (wheelStyle === 'red') {
+            return (i % 2 === 0) ? '#ffffff' : '#b91c1c';
+        }
+        if (wheelStyle === 'soft') {
+            const pastels = ['#fecaca', '#fde68a', '#bbf7d0', '#bfdbfe', '#e9d5ff', '#fbcfe8'];
+            return pastels[i % pastels.length];
+        }
+        // classic
+        return (i % 2 === 0) ? '#ffffff' : '#111111';
+    }
+
+    function drawWheel() {
+        const outsideRadius = 180;
+        const insideRadius = 0;
+
+        ctx.clearRect(0, 0, 400, 400);
+
+        let sliceAngle = (2 * Math.PI) / names.length;
+        let currentAngle = startAngle;
+
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+
+        for (let i = 0; i < names.length; i++) {
+            ctx.fillStyle = getSliceColors(i);
+
+            ctx.beginPath();
+            ctx.arc(200, 200, outsideRadius, currentAngle, currentAngle + sliceAngle, false);
+            ctx.arc(200, 200, insideRadius, currentAngle + sliceAngle, currentAngle, true);
+            ctx.stroke();
+            ctx.fill();
+
+            currentAngle += sliceAngle;
+        }
+
+        // center hub
+        ctx.fillStyle = document.body.classList.contains('dark-mode') ? '#fafafa' : '#000';
+        ctx.beginPath();
+        ctx.arc(200, 200, 30, 0, 2 * Math.PI, false);
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.fillStyle = document.body.classList.contains('dark-mode') ? '#000' : '#fff';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(names.length, 200, 200);
+    }
+
+    function spin() {
+        if (isSpinning || names.length === 0 || (names.length === 1 && names[0] === 'empty list')) return;
+        isSpinning = true;
+        spinAngleStart = Math.random() * 10 + 15;
+
+        const speed = spinSpeedSelect.value;
+        if (speed === 'short') {
+            spinTimeTotal = Math.random() * 1200 + 2200;
+        } else if (speed === 'long') {
+            spinTimeTotal = Math.random() * 5000 + 12500;
+        } else {
+            spinTimeTotal = Math.random() * 2000 + 4000;
+        }
+
+        spinTime = 0;
+        rotateWheel();
+    }
+
+    let lastIndexTicked = -1;
+    function rotateWheel() {
+        spinTime += 30;
+        if (spinTime >= spinTimeTotal) {
+            stopRotateWheel();
+            return;
+        }
+        let spinAngle = spinAngleStart - easeOut(spinTime, 0, spinAngleStart, spinTimeTotal);
+        startAngle += (spinAngle * Math.PI / 180);
+        drawWheel();
+
+        let normalizedAngle = (2 * Math.PI - (startAngle % (2 * Math.PI))) % (2 * Math.PI);
+        let totalWeight = weights.reduce((a, b) => a + b, 0);
+        let accumulated = 0;
+        let currentIndex = 0;
+        for (let i = 0; i < names.length; i++) {
+            accumulated += (weights[i] / totalWeight) * 2 * Math.PI;
+            if (normalizedAngle <= accumulated) {
+                currentIndex = i;
+                break;
+            }
+        }
+        if (currentIndex !== lastIndexTicked) {
+            playTickSound();
+            lastIndexTicked = currentIndex;
+        }
+
+        spinTimeout = setTimeout(rotateWheel, 30);
+    }
+
+    function stopRotateWheel() {
+        clearTimeout(spinTimeout);
+        let normalizedAngle = (2 * Math.PI - (startAngle % (2 * Math.PI))) % (2 * Math.PI);
+        let totalWeight = weights.reduce((a, b) => a + b, 0);
+        let accumulated = 0;
+        let winningIndex = 0;
+
+        for (let i = 0; i < names.length; i++) {
+            accumulated += (weights[i] / totalWeight) * 2 * Math.PI;
+            if (normalizedAngle <= accumulated) {
+                winningIndex = i;
+                break;
+            }
+        }
+
+        let winningRow = fullRowData[winningIndex] || { 'Name': names[winningIndex] };
+        playWinSound();
+
+        let announcementHTML = '';
+        for (let key in winningRow) {
+            let colIndex = activeHeaders.indexOf(key);
+            if (colIndex === parseInt(nameColumnSelect.value) || selectedAdditionalCols.includes(colIndex)) {
+                announcementHTML += `<strong>${key}:</strong> ${winningRow[key]}<br>`;
+            }
+        }
+        if (!announcementHTML) {
+            announcementHTML = `<strong>Name:</strong> ${names[winningIndex]}`;
+        }
+
+        modalWinnerDetails.innerHTML = announcementHTML;
+        winnerModal.classList.add('active');
+
+        if (isHighQuality && confettiToggle.checked) startConfetti();
+
+        if (!keepToggle.checked) {
+            names.splice(winningIndex, 1);
+            weights.splice(winningIndex, 1);
+            fullRowData.splice(winningIndex, 1);
+            manualNamesArea.value = names.join('\n');
+            updateWeightsUI();
+            drawWheel();
+        }
+    }
+
+    closeModalBtn.addEventListener('click', () => {
+        winnerModal.classList.remove('active');
+        isSpinning = false;
+        stopConfetti();
+    });
+
+    function easeOut(t, b, c, d) {
+        let ts = (t /= d) * t;
+        let tc = ts * t;
+        return b + c * (tc + -3 * ts + 3 * t);
+    }
+
+    function resizeConfetti() {
+        confettiCanvas.width = window.innerWidth;
+        confettiCanvas.height = window.innerHeight;
+    }
+
+    function startConfetti() {
+        if (!isHighQuality || !confettiToggle.checked) return;
+        if (confettiRepeatTimer) clearInterval(confettiRepeatTimer);
+        startConfettiBurst();
+        const seconds = Math.min(60, Math.max(1, Number(confettiIntervalInput.value) || 5));
+        confettiIntervalInput.value = seconds;
+        confettiRepeatTimer = setInterval(() => {
+            if (isHighQuality && confettiToggle.checked && winnerModal.classList.contains('active')) startConfettiBurst();
+            else stopConfetti();
+        }, seconds * 1000);
+    }
+
+    function startConfettiBurst() {
+        if (!isHighQuality || !confettiToggle.checked) return;
+        resizeConfetti();
+        confettiParticles = [];
+        const count = 80;
+        const colors = ['#ef4444', '#f87171', '#fca5a5', '#fecaca', '#fde68a', '#ffffff', '#fbbf24', '#facc15'];
+        for (let i = 0; i < count; i++) {
+            confettiParticles.push({
+                x: Math.random() * confettiCanvas.width,
+                y: Math.random() * confettiCanvas.height * -0.5,
+                size: Math.random() * 8 + 4,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                speedY: Math.random() * 3 + 2,
+                speedX: Math.random() * 4 - 2,
+                rotation: Math.random() * 360,
+                rotSpeed: Math.random() * 8 - 4
+            });
+        }
+        confettiCanvas.classList.add('active');
+        if (confettiAnimId) cancelAnimationFrame(confettiAnimId);
+        animateConfetti();
+    }
+
+    function animateConfetti() {
+        confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+        let alive = false;
+        for (let i = 0; i < confettiParticles.length; i++) {
+            const p = confettiParticles[i];
+            p.y += p.speedY;
+            p.x += p.speedX;
+            p.rotation += p.rotSpeed;
+            if (p.y < confettiCanvas.height + 20) {
+                alive = true;
+                confettiCtx.save();
+                confettiCtx.translate(p.x, p.y);
+                confettiCtx.rotate(p.rotation * Math.PI / 180);
+                confettiCtx.fillStyle = p.color;
+                confettiCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+                confettiCtx.restore();
+            }
+        }
+        if (alive) {
+            confettiAnimId = requestAnimationFrame(animateConfetti);
+        } else {
+            confettiParticles = [];
+            confettiCanvas.classList.remove('active');
+            confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+            confettiAnimId = null;
+        }
+    }
+
+    function stopConfetti() {
+        if (confettiRepeatTimer) {
+            clearInterval(confettiRepeatTimer);
+            confettiRepeatTimer = null;
+        }
+        if (confettiAnimId) {
+            cancelAnimationFrame(confettiAnimId);
+            confettiAnimId = null;
+        }
+        confettiParticles = [];
+        confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+        confettiCanvas.classList.remove('active');
+    }
+
+    window.addEventListener('resize', function() {
+        if (confettiCanvas.classList.contains('active')) resizeConfetti();
+    });
+
+    spinBtn.addEventListener('click', spin);
+    canvas.addEventListener('click', spin);
+
+    // start empty
+    initializeNames([]);
+</script>
+
+</body>
+</html>
